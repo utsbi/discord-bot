@@ -32,3 +32,18 @@ async def create_member(member: dict):
         await supabase.table("members").insert(member).execute()
     except Exception as e:
         logger.error(f"Error creating member: {e}")
+
+
+async def get_member_by_discord_id(discord_id: int):
+    supabase = await create_supabase()
+    try:
+        res = (
+            await supabase.table("members")
+            .select("*")
+            .eq("discord_id", discord_id)
+            .execute()
+        )
+
+        return res.data[0] if res.data else None
+    except Exception as e:
+        logger.error(f"Error checking member: {e}")

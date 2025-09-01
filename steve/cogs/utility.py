@@ -1,5 +1,6 @@
 import discord
 from cogs.admin import VerificationView
+from db.database import get_member_by_discord_id
 from discord.ext import commands
 from utils import get_logger
 
@@ -16,6 +17,10 @@ class Utility(commands.Cog):
 
     @commands.slash_command(name="verification", description="Get verified!")
     async def verification(self, ctx: discord.ApplicationContext):
+        if await get_member_by_discord_id(ctx.author.id):
+            await ctx.respond("You are already verified!")
+            return
+
         await ctx.respond(
             "Click the button to verify.",
             view=VerificationView(bot=self.bot, timeout=None),
