@@ -1,4 +1,5 @@
 import discord
+from cogs.admin import VerificationView
 from discord.ext import commands
 from utils import get_logger
 from utils.config import TOKEN
@@ -26,6 +27,15 @@ async def on_ready():
         )
     )
     logger.info(f"Logged in as {bot.user}")
+
+
+@bot.event
+async def on_member_join(member: discord.Member):
+    logger.info(f"New member {member.name}({member.id}) joined.")
+    await member.send(
+        f"Welcome to the Sustainable Building Initiative Discord server, {member.mention}! Please use /verification or click the button to gain access to the server.",
+        view=VerificationView(bot=bot, timeout=None),
+    )
 
 
 @bot.event
