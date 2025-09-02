@@ -17,7 +17,7 @@ class Admin(commands.Cog):
         self.bot: discord.Bot = bot
 
     admin = discord.SlashCommandGroup(
-        name="admin", description="Admin commands", guild_ids=[1309326894386253894]
+        name="admin", description="Admin commands", guild_ids=[SBI_GUILD_ID]
     )
 
     @admin.command(name="add_member", description="Add SBI member to DB")

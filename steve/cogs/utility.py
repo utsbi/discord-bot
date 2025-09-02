@@ -18,7 +18,7 @@ class Utility(commands.Cog):
     @commands.slash_command(name="verification", description="Get verified!")
     async def verification(self, ctx: discord.ApplicationContext):
         if await get_member_by_discord_id(ctx.author.id):
-            await ctx.respond("You are already verified!")
+            await ctx.respond("You are already verified!", ephemeral=True)
             return
 
         await ctx.respond(

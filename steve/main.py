@@ -53,6 +53,21 @@ async def on_application_command_error(
         raise error
 
 
+@bot.command(name="reload", description="Reload all cogs")
+async def reload(ctx: discord.ApplicationContext):
+    if ctx.author.id not in [416400712625553408]:
+        await ctx.respond(
+            "You do not have permission to use this command.", ephemeral=True
+        )
+        return
+
+    cogs = ["recording", "ai_", "utility", "admin", "meetings"]
+    for cog in cogs:
+        bot.reload_extension(f"cogs.{cog}")
+        logger.info(f"Reloaded {cog}")
+    await ctx.respond("Reloaded all cogs!", ephemeral=True)
+
+
 # Load cogs
 cogs = ["recording", "ai_", "utility", "admin", "meetings"]
 for cog in cogs:
