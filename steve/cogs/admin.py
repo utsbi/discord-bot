@@ -57,16 +57,18 @@ class Admin(commands.Cog):
     ):
         await ctx.respond(f"<@{member.id}> (wip)")
 
-    # @admin.command(
-    #     name="verify_message", description="Send a message with the verification form."
-    # )
-    # @commands.has_permissions(administrator=True)
-    # async def verify_message(self, ctx: discord.ApplicationContext, channel: str):
-    #     channel = self.bot.get_channel(int(channel))
-    #     await channel.send(
-    #         "Verification form", view=VerificationView(self.bot, timeout=None)
-    #     )  # TODO: change text
-    #     await ctx.defer()
+    @admin.command(
+        name="send_verification",
+        description="Send a message with the verification form to a user.",
+    )
+    @commands.has_permissions(administrator=True)
+    async def send_verification(
+        self, ctx: discord.ApplicationContext, member: discord.Member
+    ):
+        await member.send(
+            "Hello, please fill out this form so we can add you to our database.",
+            view=VerificationView(bot=self.bot, timeout=None),
+        )
 
 
 class VerificationModal(discord.ui.Modal):
