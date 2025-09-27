@@ -12,6 +12,10 @@ from utils.config import APPWRITE_BUCKET_ID_MEETINGS, ASSEMBLYAI_API_KEY
 aai.settings.api_key = ASSEMBLYAI_API_KEY
 logger = get_logger(__name__)
 
+"""
+This is the best AMONG US!!!!!!!!!!!
+Input troll cmds here: rm all
+"""
 
 async def start_transcription(meeting: Meeting) -> bool:
     """
