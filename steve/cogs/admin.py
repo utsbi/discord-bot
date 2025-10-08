@@ -92,6 +92,13 @@ class VerificationModal(discord.ui.Modal):
                 max_length=50,
             )
         )
+        self.add_item(
+            discord.ui.InputText(
+                label="What is your email?",
+                style=discord.InputTextStyle.short,
+                max_length=50,
+            )
+        )
 
     async def callback(self, interaction: discord.Interaction):
         embed = discord.Embed(
@@ -100,6 +107,7 @@ class VerificationModal(discord.ui.Modal):
         embed.add_field(name=self.children[0].label, value=self.children[0].value)
         embed.add_field(name=self.children[1].label, value=self.children[1].value)
         embed.add_field(name=self.children[2].label, value=self.children[2].value)
+        embed.add_field(name=self.children[3].label, value=self.children[3].value)
         embed.set_footer(text="Steve | Sustainable Building Initiative")
         embed.set_author(
             name=self.bot.user.name,
@@ -109,18 +117,21 @@ class VerificationModal(discord.ui.Modal):
         first = self.children[0].value.strip()
         last = self.children[1].value.strip()
         uteid = self.children[2].value.strip()
+        email = self.children[3].value.strip()
 
         # if await check_uteid(uteid): # TODO: add eid verifing
         application_document = {
             "first": first,
             "last": last,
             "uteid": uteid,
+            "email": email,
             "discord-id": interaction.user.id,
         }
 
         member_data = {
             "name": f"{first} {last}",
             "eid": uteid,
+            "email": email,
             "discord_id": interaction.user.id,
         }
 
