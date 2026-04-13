@@ -1,11 +1,12 @@
 import logging
-from datetime import datetime
+from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
 
 def setup_logging(level=logging.INFO):
     """
     Set up centralized logging configuration for the bot.
+    Log files rotate daily at midnight, named like bot.log, bot.log.2026-04-12, etc.
 
     Args:
         level: Logging level (default: logging.INFO)
@@ -17,15 +18,21 @@ def setup_logging(level=logging.INFO):
     logs_dir = project_root / "logs"
     logs_dir.mkdir(exist_ok=True)
 
-    # Create log filename with current date
-    log_filename = logs_dir / f"{datetime.now().strftime('%Y-%m-%d')}.log"
+    log_format = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
+
+    file_handler = TimedRotatingFileHandler(
+        logs_dir / "bot.log",
+        when="midnight",
+        backupCount=0,
+    )
+    file_handler.setFormatter(logging.Formatter(log_format))
 
     # Configure logging
     logging.basicConfig(
         level=level,
-        format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+        format=log_format,
         handlers=[
-            logging.FileHandler(log_filename),
+            file_handler,
             logging.StreamHandler(),
         ],
         force=True,  # Override any existing configuration

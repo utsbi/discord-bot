@@ -31,9 +31,11 @@ async def start_transcription(meeting: Meeting) -> bool:
         logger.error("Meeting must have an ID to start transcription")
         return False
 
+    temp_files = []
+    combined_file = None
+
     try:
         # Download all audio files from storage
-        temp_files = []
         for recording_id in meeting.recordings:
             temp_file = await _download_recording(recording_id)
             if temp_file:
@@ -86,7 +88,7 @@ async def start_transcription(meeting: Meeting) -> bool:
                 os.unlink(temp_file)
             except OSError:
                 pass
-        if "combined_file" in locals() and combined_file:
+        if combined_file and combined_file not in temp_files:
             try:
                 os.unlink(combined_file)
             except OSError:

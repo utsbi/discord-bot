@@ -2,7 +2,7 @@ import discord
 from cogs.admin import VerificationView
 from discord.ext import commands
 from utils import get_logger
-from utils.config import TOKEN
+from utils.config import BOT_ADMIN_IDS, TOKEN
 
 logger = get_logger(__name__)
 logger.info("Logging started")
@@ -55,7 +55,7 @@ async def on_application_command_error(
 
 @bot.command(name="reload", description="Reload all cogs")
 async def reload(ctx: discord.ApplicationContext):
-    if ctx.author.id not in [416400712625553408]:
+    if ctx.author.id not in BOT_ADMIN_IDS:
         await ctx.respond(
             "You do not have permission to use this command.", ephemeral=True
         )

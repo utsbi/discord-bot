@@ -36,7 +36,6 @@ class Recording(commands.Cog):
         self.connections = {}
         self.recording_tasks = {}
         self.max_recording_duration = 3600 * 5  # 5 hour max recording
-        self.vc = None
         # self.socket_keepalive.start()
         self.send_packet.start()
 
@@ -91,6 +90,16 @@ class Recording(commands.Cog):
                 )
             )
 
+            if not meeting:
+                embed = discord.Embed(
+                    title="Recording Failed",
+                    description="Failed to create meeting record. Please try again.",
+                    color=discord.Color.red(),
+                )
+                await ctx.followup.send(embed=embed, ephemeral=True)
+                await vc.disconnect()
+                return
+
             # Store connection
             self.connections[ctx.guild.id] = {
                 "voice_client": vc,
@@ -102,8 +111,6 @@ class Recording(commands.Cog):
                 "status_view": status_view,
                 "meeting": meeting,
             }
-            self.vc = vc
-
             # Play recording start sound
             await self._play_recording_start_sound(vc)
 
@@ -313,6 +320,8 @@ class Recording(commands.Cog):
             await self._cleanup_recording(ctx.guild.id)
 
     async def _stop_recording(self, guild_id: int):
+        if guild_id not in self.connections:
+            return
         connection_info = self.connections[guild_id]
         vc: discord.VoiceClient = connection_info["voice_client"]
 
@@ -412,7 +421,7 @@ class Recording(commands.Cog):
         """Clean up when cog is unloaded"""
         logger.info("Cleaning up all recordings on cog unload")
         # Cancel socket keepalive task
-        self.socket_keepalive.cancel()
+        self.send_packet.cancel()
         # Cancel status update task only if it exists and is running
         if hasattr(self, "status_update_task") and self.status_update_task.is_running():
             self.status_update_task.cancel()
@@ -490,20 +499,19 @@ class Recording(commands.Cog):
     #         logger.warning(f"Error sending keepalive packet for guild: {e}")
     #     return
 
-    @tasks.loop(
-        seconds=10
-    )  # This can be 10 seconds, 1 minute, whatever suits your needs
+    @tasks.loop(seconds=10)
     async def send_packet(self):
         """
-        We need this to send packets occasionally in case there is a period of no voice activity.
-        This will prevent our bot's listen socket from closing.
+        Send silent packets to all active voice connections to prevent
+        Discord from closing the listening socket during periods of silence.
         """
-        try:
-            if self.vc:
-                self.vc.send_audio_packet(b"\xf8\xff\xfe", encode=False)
-        except Exception as e:
-            print(e)
-        return
+        for conn in self.connections.values():
+            try:
+                vc = conn["voice_client"]
+                if vc and vc.is_connected():
+                    vc.send_audio_packet(b"\xf8\xff\xfe", encode=False)
+            except Exception as e:
+                logger.warning(f"Error sending keepalive packet: {e}")
 
 
 class SafeWaveSink(discord.sinks.MP3Sink):

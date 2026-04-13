@@ -1,5 +1,6 @@
 import asyncio
 import json
+from pathlib import Path
 from typing import Optional
 
 from appwrite.id import ID
@@ -105,10 +106,11 @@ async def export_all():
         )
 
         # Write response to JSON file
-        with open("meeting_export.json", "w") as f:
+        export_path = Path(__file__).parent.parent.parent / "people_export.json"
+        with open(export_path, "w") as f:
             json.dump(response, f, indent=2)
 
-        logger.info("Successfully exported all people to meeting_export.json")
+        logger.info(f"Successfully exported all people to {export_path}")
         return response
 
     except Exception as e:

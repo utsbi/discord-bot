@@ -12,6 +12,7 @@ client = genai.Client(api_key=GEMINI_API_KEY)
 class AI(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.chat_threads: set[int] = set()
 
     async def send_long_message(self, channel, content: str, max_length: int = 2000):
         """Send a long message by splitting it into chunks if necessary."""
@@ -104,6 +105,7 @@ class AI(commands.Cog):
             thread: discord.Thread = await ctx.channel.create_thread(
                 name=title.text, type=discord.ChannelType.private_thread
             )
+            self.chat_threads.add(thread.id)
             await thread.add_user(ctx.author)
 
             initial = await thread.send("Thinking...")
@@ -132,8 +134,8 @@ class AI(commands.Cog):
             await ctx.respond("This isn't a chat thread!", ephemeral=True)
             return
 
-        t = await ctx.channel.history().flatten()
-        gemini_history = [t.content for t in t]
+        messages = await ctx.channel.history().flatten()
+        gemini_history = [msg.content for msg in messages]
         response = await client.aio.models.count_tokens(
             model=LLM_MODEL,
             contents="\n".join(gemini_history),
@@ -145,21 +147,34 @@ class AI(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        # TODO: add all chat thread ids to db, for better identification
         if not isinstance(message.channel, discord.Thread):
             return
 
         if message.author == self.bot.user:
             return
 
-        # TODO: add a cache in the future to speed up operations
-        thread = message.channel
-        gemini_history = self.create_gemini_history(await thread.history().flatten())
-        # logger.info(f"Gemini history: {gemini_history}")
+        if message.channel.id not in self.chat_threads:
+            return
 
-        chat = client.aio.chats.create(model=LLM_MODEL, history=gemini_history)
-        response = await chat.send_message(message.content)
-        await self.send_long_message(thread, response.text)
+        try:
+            thread = message.channel
+            gemini_history = self.create_gemini_history(
+                await thread.history().flatten()
+            )
+
+            chat = client.aio.chats.create(model=LLM_MODEL, history=gemini_history)
+            response = await chat.send_message(message.content)
+            if response.text:
+                await self.send_long_message(thread, response.text)
+            else:
+                await thread.send(
+                    "Sorry, I couldn't generate a response. Please try again."
+                )
+        except Exception as e:
+            logger.error(f"Error in chat on_message: {e}")
+            await message.channel.send(
+                "Sorry, something went wrong. Please try again."
+            )
 
 
 def setup(bot):

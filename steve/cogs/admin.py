@@ -1,15 +1,13 @@
 import discord
 from db import Person, create_person
-from db.database import create_member
+from db.database import create_member, get_member_by_discord_id
 from discord.ext import commands
 from utils import get_logger
+from utils.config import GENERAL_MEMBER_ROLE_ID, SBI_GUILD_ID, VERIFICATION_CHANNEL_ID
 
 logger = get_logger(__name__)
 
 EMBED_COLOR = discord.Color.from_rgb(34, 197, 94)
-VERIFICATION_CHANNEL_ID = 1411978275013660824
-GENERAL_MEMBER_ROLE_ID = 1309327928039051306
-SBI_GUILD_ID = 1309326894386253894
 
 
 class Admin(commands.Cog):
@@ -47,15 +45,6 @@ class Admin(commands.Cog):
     # async def list_members(self, ctx: discord.ApplicationContext):
     #     await export_all()
     #     await ctx.respond("done")
-
-    @admin.command(
-        name="check_member", description="Check if a member is in the database"
-    )
-    @commands.has_permissions(administrator=True)
-    async def check_member(
-        self, ctx: discord.ApplicationContext, member: discord.Member
-    ):
-        await ctx.respond(f"<@{member.id}> (wip)")
 
     @admin.command(
         name="send_verification",
@@ -101,8 +90,63 @@ class VerificationModal(discord.ui.Modal):
         )
 
     async def callback(self, interaction: discord.Interaction):
+        try:
+            existing = await get_member_by_discord_id(interaction.user.id)
+        except Exception:
+            await interaction.response.send_message(
+                "Something went wrong. Please try again later.", ephemeral=True
+            )
+            return
+
+        if existing:
+            await interaction.response.send_message(
+                "You are already verified!", ephemeral=True
+            )
+            return
+
+        first = self.children[0].value.strip()
+        last = self.children[1].value.strip()
+        uteid = self.children[2].value.strip()
+        email = self.children[3].value.strip()
+
+        if not all([first, last, uteid, email]):
+            await interaction.response.send_message(
+                "All fields are required. Please try again.", ephemeral=True
+            )
+            return
+
+        if "@" not in email or "." not in email:
+            await interaction.response.send_message(
+                "Please enter a valid email address.", ephemeral=True
+            )
+            return
+
+        member_data = {
+            "name": f"{first} {last}",
+            "eid": uteid,
+            "email": email,
+            "discord_id": interaction.user.id,
+        }
+
+        try:
+            await create_member(member_data)
+        except Exception:
+            await interaction.response.send_message(
+                "Something went wrong. Please contact a Director for help.",
+                ephemeral=True,
+            )
+            return
+
+        guild: discord.Guild | None = self.bot.get_guild(SBI_GUILD_ID)
+        member: discord.Member = await guild.fetch_member(interaction.user.id)
+        await member.edit(nick=f"{first} {last}")
+        await member.add_roles(guild.get_role(GENERAL_MEMBER_ROLE_ID))
+
         embed = discord.Embed(
             title=f"{interaction.user.name}'s Verification", color=EMBED_COLOR
+        )
+        embed.add_field(
+            name="Member", value=f"<@{interaction.user.id}>", inline=False
         )
         embed.add_field(name=self.children[0].label, value=self.children[0].value)
         embed.add_field(name=self.children[1].label, value=self.children[1].value)
@@ -114,48 +158,13 @@ class VerificationModal(discord.ui.Modal):
             icon_url=self.bot.user.avatar.url if self.bot.user.avatar else None,
         )
 
-        first = self.children[0].value.strip()
-        last = self.children[1].value.strip()
-        uteid = self.children[2].value.strip()
-        email = self.children[3].value.strip()
-
-        # if await check_uteid(uteid): # TODO: add eid verifing
-        application_document = {
-            "first": first,
-            "last": last,
-            "uteid": uteid,
-            "email": email,
-            "discord-id": interaction.user.id,
-        }
-
-        member_data = {
-            "name": f"{first} {last}",
-            "eid": uteid,
-            "email": email,
-            "discord_id": interaction.user.id,
-        }
-
-        guild: discord.Guild | None = self.bot.get_guild(SBI_GUILD_ID)
-        member: discord.Member = await guild.fetch_member(interaction.user.id)
-        await member.edit(nick=f"{first} {last}")
-        await member.add_roles(guild.get_role(GENERAL_MEMBER_ROLE_ID))
-
-        await create_member(member_data)
-
-        logger.info(application_document)
+        logger.info(f"New member verified: {first} {last}")
         channel = self.bot.get_channel(VERIFICATION_CHANNEL_ID)
         if channel:
-            logger.info("New member verified")
-            logger.info(embed.to_dict())
             await channel.send(embed=embed)
-            await interaction.response.send_message(
-                "Thanks for verifying!", ephemeral=True
-            )
-        else:
-            await interaction.response.send_message(
-                "Something went wrong. Please contact a Director for help.",
-                ephemeral=True,
-            )
+        await interaction.response.send_message(
+            "Thanks for verifying!", ephemeral=True
+        )
 
 
 class VerificationView(discord.ui.View):
@@ -165,6 +174,19 @@ class VerificationView(discord.ui.View):
 
     @discord.ui.button(label="Start Verification")
     async def button_callback(self, button, interaction):
+        try:
+            existing = await get_member_by_discord_id(interaction.user.id)
+        except Exception:
+            await interaction.response.send_message(
+                "Something went wrong. Please try again later.", ephemeral=True
+            )
+            return
+
+        if existing:
+            await interaction.response.send_message(
+                "You are already verified!", ephemeral=True
+            )
+            return
         await interaction.response.send_modal(
             VerificationModal(self.bot, title="Verification")
         )
