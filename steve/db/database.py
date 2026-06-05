@@ -27,6 +27,12 @@ logger = get_logger(__name__)
 # Must be a value of the `profile_role` enum (client | director | member).
 DEFAULT_MEMBER_ROLE = "member"
 
+
+class VerificationError(Exception):
+    """A verification could not be completed safely (e.g. an email claim that
+    would rebind or escalate an existing account). The message is safe to show
+    to the end user."""
+
 # Cached Supabase client. The bot writes to `profiles` (RLS-protected), so
 # SUPABASE_KEY MUST be the service-role key to bypass RLS.
 _supabase: Optional[AsyncClient] = None
@@ -78,7 +84,7 @@ async def get_profile_by_email(email: str) -> Optional[dict]:
 
 
 async def verify_member(
-    *, name: str, eid: str, email: str, discord_id: int
+    *, name: str, eid: str, email: str, discord_id: int, trusted: bool = False
 ) -> Optional[dict]:
     """Link or create a member profile for a verifying Discord user.
 
@@ -88,27 +94,51 @@ async def verify_member(
     - Otherwise, insert a standalone member profile that is not tied to an
       auth.users account (`uid` is left NULL).
 
+    Security: on the self-serve verification path the `email` is supplied by an
+    untrusted Discord user, so it cannot be used to claim an arbitrary account.
+    When ``trusted`` is False we refuse to:
+      * rebind a profile that is already linked to a *different* Discord account, or
+      * link an unverified email claim onto a non-``member`` (elevated) profile.
+    The admin command (gated on Discord ``administrator``) passes ``trusted=True``.
+
     Returns the resulting profile row, or None on failure.
+    Raises VerificationError when a link is refused for safety reasons.
     """
     supabase = await get_supabase()
-    try:
-        existing = await get_profile_by_email(email)
+    existing = await get_profile_by_email(email)
 
-        if existing:
-            updates: dict = {"discord_id": discord_id}
-            if not existing.get("eid"):
-                updates["eid"] = eid
-            if not existing.get("name"):
-                updates["name"] = name
+    if existing:
+        if not trusted:
+            existing_discord = existing.get("discord_id")
+            if existing_discord and existing_discord != discord_id:
+                raise VerificationError(
+                    "That email is already linked to another Discord account."
+                )
+            if existing.get("role") != DEFAULT_MEMBER_ROLE:
+                raise VerificationError(
+                    "That email belongs to a staff account and must be linked "
+                    "by a Director."
+                )
 
+        updates: dict = {"discord_id": discord_id}
+        if not existing.get("eid"):
+            updates["eid"] = eid
+        if not existing.get("name"):
+            updates["name"] = name
+
+        try:
             res = (
                 await supabase.table("profiles")
                 .update(updates)
                 .eq("id", existing["id"])
                 .execute()
             )
-            return res.data[0] if res.data else existing
+        except Exception as e:
+            logger.error(f"Error linking member profile: {e}")
+            raise
+        return res.data[0] if res.data else existing
 
+    try:
         res = (
             await supabase.table("profiles")
             .insert(
@@ -123,7 +153,7 @@ async def verify_member(
             )
             .execute()
         )
-        return res.data[0] if res.data else None
     except Exception as e:
-        logger.error(f"Error verifying member: {e}")
+        logger.error(f"Error creating member profile: {e}")
         raise
+    return res.data[0] if res.data else None

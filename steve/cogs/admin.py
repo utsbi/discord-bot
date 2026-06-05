@@ -1,5 +1,5 @@
 import discord
-from db.database import get_member_by_discord_id, verify_member
+from db.database import VerificationError, get_member_by_discord_id, verify_member
 from discord.ext import commands
 from utils import get_logger
 from utils.config import GENERAL_MEMBER_ROLE_ID, SBI_GUILD_ID, VERIFICATION_CHANNEL_ID
@@ -38,6 +38,7 @@ class Admin(commands.Cog):
                 eid=eid,
                 email=email,
                 discord_id=member.id,
+                trusted=True,
             )
         except Exception:
             await ctx.respond(
@@ -132,6 +133,12 @@ class VerificationModal(discord.ui.Modal):
                 email=email,
                 discord_id=interaction.user.id,
             )
+        except VerificationError as e:
+            await interaction.response.send_message(
+                f"{e} Please contact a Director if you need help.",
+                ephemeral=True,
+            )
+            return
         except Exception:
             await interaction.response.send_message(
                 "Something went wrong. Please contact a Director for help.",
