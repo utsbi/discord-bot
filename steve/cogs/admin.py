@@ -1,6 +1,5 @@
 import discord
-from db import Person, create_person
-from db.database import create_member, get_member_by_discord_id
+from db.database import get_member_by_discord_id, verify_member
 from discord.ext import commands
 from utils import get_logger
 from utils.config import GENERAL_MEMBER_ROLE_ID, SBI_GUILD_ID, VERIFICATION_CHANNEL_ID
@@ -33,18 +32,23 @@ class Admin(commands.Cog):
             )
             return
 
-        await create_person(
-            Person(discord_id=member.id, name=member.nick, email=email, eid=eid)
-        )
+        try:
+            await verify_member(
+                name=member.nick,
+                eid=eid,
+                email=email,
+                discord_id=member.id,
+            )
+        except Exception:
+            await ctx.respond(
+                "Something went wrong adding the member to the database.",
+                ephemeral=True,
+            )
+            return
+
         await ctx.respond(
             f"Added {member.name} ({member.nick}) to the SBI member's DB."
         )
-
-    # @admin.command(name="list_members", description="List current SBI members in DB")
-    # @commands.has_permissions(administrator=True)
-    # async def list_members(self, ctx: discord.ApplicationContext):
-    #     await export_all()
-    #     await ctx.respond("done")
 
     @admin.command(
         name="send_verification",
@@ -121,15 +125,13 @@ class VerificationModal(discord.ui.Modal):
             )
             return
 
-        member_data = {
-            "name": f"{first} {last}",
-            "eid": uteid,
-            "email": email,
-            "discord_id": interaction.user.id,
-        }
-
         try:
-            await create_member(member_data)
+            await verify_member(
+                name=f"{first} {last}",
+                eid=uteid,
+                email=email,
+                discord_id=interaction.user.id,
+            )
         except Exception:
             await interaction.response.send_message(
                 "Something went wrong. Please contact a Director for help.",

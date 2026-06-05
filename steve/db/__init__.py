@@ -5,8 +5,7 @@ from .meetings import (
     get_meeting,
     update_meeting,
 )
-from .people import create_person, export_all, get_person, update_person
-from .types import Meeting, Person
+from .types import Meeting
 
 __all__ = [
     "create_meeting",
@@ -14,10 +13,5 @@ __all__ = [
     "create_recording",
     "update_meeting",
     "get_meeting",
-    "create_person",
-    "get_person",
-    "update_person",
-    "export_all",
     "Meeting",
-    "Person",
 ]
