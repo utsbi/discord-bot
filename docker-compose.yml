@@ -1,5 +1,18 @@
 services:
   bot:
     build: .
-    env_file: .env
     restart: unless-stopped
+    # Dokploy injects environment variables from its UI; this also works for
+    # local runs that keep a .env file alongside the compose file.
+    env_file: .env
+    volumes:
+      - bot-logs:/app/logs
+    # Cap container log growth so a long-running bot doesn't fill the host disk.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  bot-logs:
